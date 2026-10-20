@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     server: {
+      // Listen on every local address so the app is reachable as both localhost and 127.0.0.1
+      // (Firebase phone sign-in is known to fail on `localhost`; 127.0.0.1 works).
+      host: true,
       port: Number(env.VITE_DEV_PORT) || 5173,
       proxy: {
         '/api': { target: apiTarget, changeOrigin: true },

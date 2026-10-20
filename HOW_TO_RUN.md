@@ -103,14 +103,17 @@ Wait for:
 
 | What          | URL                         |
 | ------------- | --------------------------- |
-| Website       | http://localhost:5173       |
-| Admin console | http://localhost:5173/admin |
+| Website       | http://127.0.0.1:5173       |
+| Admin console | http://127.0.0.1:5173/admin |
 
 **Users log in with their mobile number + OTP** (the same screen is used for sign-up):
 
 1. Click **Log in** → enter a 10-digit mobile number → **Get OTP**.
 2. Enter the 6-digit code.
 3. New number? You'll be asked for your name once — then you're in.
+
+**Hosting a tournament** asks for a WhatsApp number for players (pre-filled with your login number). A
+different number is verified once by OTP, which in development is printed the same way as the login code.
 
 In development **no real SMS is sent**. The code is shown:
 
@@ -160,7 +163,52 @@ npm run dev
 
 ---
 
-## Sending real OTP SMS (when going live)
+## Going live with Firebase Phone Auth (recommended — free, no DLT)
+
+Firebase sends the login SMS from the browser and the API only verifies Google's signed token, so
+no SMS provider or DLT registration is needed. India is in Firebase's no-cost tier (about 10,000
+verifications a month at the time of writing; check the Firebase pricing page).
+
+1. Go to https://console.firebase.google.com → **Add project** (Google Analytics can be off).
+2. **Build → Authentication → Get started → Sign-in method → Phone → Enable**.
+3. **Authentication → Settings → Authorized domains**: add your live domain (`localhost` is already there).
+4. Optional for testing: **Phone → Phone numbers for testing** — add e.g. `+91 9000000101` with a fixed
+   code; Firebase then never sends a real SMS to that number.
+5. **Project settings → General → Your apps → Add app → Web** (</> icon). Copy `apiKey`, `authDomain`,
+   `projectId`, `appId` from the config it shows.
+6. `frontend/.env`:
+
+```
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=<project>.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=<project>
+VITE_FIREBASE_APP_ID=...
+```
+
+7. `backend/.env`:
+
+```
+SMS_PROVIDER=firebase
+FIREBASE_PROJECT_ID=<project>          # same value as VITE_FIREBASE_PROJECT_ID
+NODE_ENV=production                    # on the live server
+```
+
+8. **Authorized domains**: in Authentication → Settings → Authorized domains, add `127.0.0.1` (no port) next to
+   the existing `localhost`.
+9. Restart both apps and log in with your own number — the SMS now comes from Firebase.
+
+> **Local testing: open http://127.0.0.1:5173, not http://localhost:5173.** Firebase phone sign-in has a known
+> bug where real numbers fail on `localhost` with `auth/invalid-app-credential` even though everything is
+> configured correctly (test numbers still work). Opening the app via `127.0.0.1` avoids it, and deployed
+> domains are not affected. The Vite dev server listens on both addresses.
+
+Both sides must agree: if the frontend has the `VITE_FIREBASE_*` keys but the backend still uses
+`console`, the API answers `PHONE_AUTH_UNAVAILABLE`. The WhatsApp-contact verification uses the
+same Firebase path automatically.
+
+---
+
+## Sending real OTP SMS (alternative to Firebase)
 
 Development uses `SMS_PROVIDER=console`. For real SMS, pick a provider and set it in `backend/.env`:
 
@@ -188,20 +236,21 @@ TWILIO_FROM=<sender number>        # or TWILIO_MESSAGING_SERVICE_SID=<MGxxxxxxxx
 
 ## Problems?
 
-| Problem                                                                | Fix                                                                                                                                |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Website loads but shows "Couldn't load" / "Unable to reach the server" | The **backend is not running** — do Step 4.                                                                                        |
-| Backend says `❌ Invalid environment configuration`                    | Fill in the values it lists in `backend/.env`.                                                                                     |
-| Backend can't connect to MongoDB                                       | MongoDB Atlas → **Network Access** → add your current IP.                                                                          |
-| `EADDRINUSE` (port already in use)                                     | Something is already running there. Close the other terminal, or run `lsof -ti :5000 \| xargs kill` (use `5173` for the frontend). |
-| `command not found: npm`                                               | Install Node.js 20+ from https://nodejs.org                                                                                        |
-| `Cannot find module …`                                                 | Run `npm install` again from the main `Cricketapp` folder (Step 1).                                                                |
-| Image upload fails                                                     | Look at the **backend terminal** — it prints the exact Cloudinary error.                                                           |
-| Didn't get the OTP (development)                                       | No SMS is sent in development — read the code on the login screen or in Terminal 1 (`[DEV SMS] OTP for …`).                        |
-| "Please wait 25s before requesting another code"                       | Resend is allowed every 30 seconds.                                                                                                |
-| "Too many codes requested for this number"                             | Max 5 OTPs per number per hour — wait, or use another number while testing.                                                        |
-| "Too many wrong attempts"                                              | Request a new code (each code allows 5 tries).                                                                                     |
-| OTP not printed in Terminal 1                                          | Another backend is already running on port 5000 — close it (`lsof -ti :5000 \| xargs kill`) and start again.                       |
-| Real SMS not arriving (live)                                           | Check Terminal 1 for `OTP SMS failed` with the provider's reason (credentials, DLT template, balance).                             |
+| Problem                                                                  | Fix                                                                                                                                                              |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The security check could not be completed" on the login page (Firebase) | You opened the app as `localhost` — use http://127.0.0.1:5173 instead (see the Firebase section), and make sure `127.0.0.1` is in Firebase's Authorized domains. |
+| Website loads but shows "Couldn't load" / "Unable to reach the server"   | The **backend is not running** — do Step 4.                                                                                                                      |
+| Backend says `❌ Invalid environment configuration`                      | Fill in the values it lists in `backend/.env`.                                                                                                                   |
+| Backend can't connect to MongoDB                                         | MongoDB Atlas → **Network Access** → add your current IP.                                                                                                        |
+| `EADDRINUSE` (port already in use)                                       | Something is already running there. Close the other terminal, or run `lsof -ti :5000 \| xargs kill` (use `5173` for the frontend).                               |
+| `command not found: npm`                                                 | Install Node.js 20+ from https://nodejs.org                                                                                                                      |
+| `Cannot find module …`                                                   | Run `npm install` again from the main `Cricketapp` folder (Step 1).                                                                                              |
+| Image upload fails                                                       | Look at the **backend terminal** — it prints the exact Cloudinary error.                                                                                         |
+| Didn't get the OTP (development)                                         | No SMS is sent in development — read the code on the login screen or in Terminal 1 (`[DEV SMS] OTP for …`).                                                      |
+| "Please wait 25s before requesting another code"                         | Resend is allowed every 30 seconds.                                                                                                                              |
+| "Too many codes requested for this number"                               | Max 5 OTPs per number per hour — wait, or use another number while testing.                                                                                      |
+| "Too many wrong attempts"                                                | Request a new code (each code allows 5 tries).                                                                                                                   |
+| OTP not printed in Terminal 1                                            | Another backend is already running on port 5000 — close it (`lsof -ti :5000 \| xargs kill`) and start again.                                                     |
+| Real SMS not arriving (live)                                             | Check Terminal 1 for `OTP SMS failed` with the provider's reason (credentials, DLT template, balance).                                                           |
 
 For architecture, API endpoints and all settings, see [README.md](README.md).

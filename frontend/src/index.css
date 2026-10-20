@@ -148,3 +148,8 @@
     display: none;
   }
 }
+
+/* Firebase phone sign-in uses invisible reCAPTCHA; the badge may be hidden when the attribution text is shown. */
+.grecaptcha-badge {
+  visibility: hidden;
+}

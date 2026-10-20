@@ -10,10 +10,12 @@ import {
   tournamentSchema,
   type TournamentQuery,
   type TournamentStatus,
+  type tournamentContactSchema,
   type tournamentDraftSchema,
   type tournamentUpdateSchema,
 } from '@playlocal/shared';
-import { Registration, Tournament } from '../models';
+import { Registration, Tournament, User } from '../models';
+import { verifyContactTicket } from '../utils/token';
 import { ApiError } from '../utils/ApiError';
 import { endOfDay, startOfDay, toIsoDate, todayIso } from '../utils/dates';
 import { escapeRegex, getPaging } from '../utils/pagination';
@@ -26,6 +28,7 @@ import { geocode } from './geoService';
 import { notify } from './notificationService';
 
 type DraftInput = z.output<typeof tournamentDraftSchema>;
+type ContactInput = z.output<typeof tournamentContactSchema>;
 type UpdateInput = z.output<typeof tournamentUpdateSchema>;
 interface Actor {
   id: string;
@@ -41,6 +44,7 @@ const LIST_PROJECTION = {
   suspensionReason: 0,
   reviewedBy: 0,
   verifiedBy: 0,
+  contact: 0,
 } as const;
 
 const DEFAULT_RADIUS_KM = 150;
@@ -172,6 +176,19 @@ async function loadOwned(id: string, actor: Actor) {
   return t;
 }
 
+/** Logged-in users may contact the organiser; with `registered` visibility only teams that joined. */
+async function canContactOrganiser(t: Record<string, any>, actor?: Actor): Promise<boolean> {
+  if (!actor || !t.contact?.whatsapp) return false;
+  if (t.contact.visibility !== 'registered') return true;
+  return Boolean(
+    await Registration.exists({
+      tournamentId: t._id,
+      captainId: actor.id,
+      status: { $in: ['pending', 'confirmed', 'waitlisted'] },
+    }),
+  );
+}
+
 /** Public tournaments are visible to all; anything else only to its owner or an admin (404 otherwise). */
 export async function getVisible(id: string, actor?: Actor) {
   if (!Types.ObjectId.isValid(id)) throw ApiError.notFound('Tournament not found.');
@@ -181,7 +198,10 @@ export async function getVisible(id: string, actor?: Actor) {
   if (!privileged && !(PUBLIC_TOURNAMENT_STATUSES as readonly string[]).includes(t.status)) {
     throw ApiError.notFound('Tournament not found.');
   }
-  return toTournamentDTO(t, { includePrivate: privileged });
+  return toTournamentDTO(t, {
+    includePrivate: privileged,
+    includeContact: privileged || (await canContactOrganiser(t, actor)),
+  });
 }
 
 /* ----------------------------------------------------------------- writes */
@@ -205,6 +225,10 @@ function toUpdateDoc(input: Partial<UpdateInput>): Record<string, unknown> {
   if (input.endDate !== undefined) $set.endDate = endOfDay(input.endDate);
   if (input.registrationDeadline !== undefined)
     $set.registrationDeadline = endOfDay(input.registrationDeadline);
+  if (input.contact) {
+    $set['contact.whatsapp'] = input.contact.whatsapp;
+    $set['contact.visibility'] = input.contact.visibility;
+  }
   if (input.venue) {
     const v = input.venue;
     if (v.name !== undefined) $set['venue.name'] = v.name;
@@ -218,6 +242,28 @@ function toUpdateDoc(input: Partial<UpdateInput>): Record<string, unknown> {
       };
   }
   return $set;
+}
+
+/**
+ * A WhatsApp number other than the organiser's own verified login number (or the one already
+ * stored on this tournament) must come with a ticket from POST /auth/otp/verify-contact, so nobody
+ * can list a stranger's number. Admins are trusted.
+ */
+async function assertContactVerified(
+  actor: Actor,
+  contact: ContactInput | undefined,
+  current?: { whatsapp?: string | null } | null,
+) {
+  if (!contact || actor.role === 'admin') return;
+  if (current?.whatsapp && current.whatsapp === contact.whatsapp) return;
+  const me = await User.findById(actor.id).select('phone').lean();
+  if (me?.phone === contact.whatsapp) return;
+  if (contact.ticket && verifyContactTicket(contact.ticket, actor.id) === contact.whatsapp) return;
+  throw ApiError.badRequest(
+    'Verify this WhatsApp number with the OTP first.',
+    ERROR_CODES.CONTACT_NOT_VERIFIED,
+    [{ path: 'contact.whatsapp', message: 'Verify this number with the OTP first' }],
+  );
 }
 
 function assertDatesNotPast(input: { startDate?: string; registrationDeadline?: string }) {
@@ -238,6 +284,7 @@ export async function createDraft(actor: Actor, input: DraftInput) {
   assertOwnImages({ banner: input.banner });
   const sport = await resolveActiveSport(input.sport);
   assertDatesNotPast(input);
+  await assertContactVerified(actor, input.contact);
   const t = await Tournament.create({
     ...toUpdateDoc(input),
     sport,
@@ -271,6 +318,9 @@ function toInputShape(t: Record<string, any>) {
     prizeMoney: t.prizeMoney,
     prizeDetails: t.prizeDetails,
     rules: t.rules,
+    contact: t.contact?.whatsapp
+      ? { whatsapp: t.contact.whatsapp, visibility: t.contact.visibility ?? 'members' }
+      : undefined,
   };
 }
 
@@ -289,7 +339,7 @@ export async function update(id: string, actor: Actor, input: UpdateInput) {
       );
       if (disallowed.length) {
         throw ApiError.forbidden(
-          `Once published, only description, rules, banner and team capacity can be changed. Contact support to change: ${disallowed.join(', ')}.`,
+          `Once published, only description, rules, banner, team capacity and contact can be changed. Contact support to change: ${disallowed.join(', ')}.`,
           ERROR_CODES.TOURNAMENT_NOT_EDITABLE,
         );
       }
@@ -310,6 +360,7 @@ export async function update(id: string, actor: Actor, input: UpdateInput) {
   }
 
   assertOwnImages({ banner: input.banner });
+  await assertContactVerified(actor, input.contact, t.contact);
   if (input.sport !== undefined) input.sport = await resolveActiveSport(input.sport);
 
   // Validate date rules against the merged (stored + incoming) values.

@@ -23,6 +23,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@playlocal/shared": "^0.1.0",
     "@tanstack/react-query": "^5.104.1",
+    "firebase": "^13.0.0",
     "lucide-react": "^1.51.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

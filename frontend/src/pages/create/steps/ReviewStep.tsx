@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AlertTriangle, BadgeCheck, Pencil } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { tournamentSchema, type TournamentDTO } from '@playlocal/shared';
+import { CONTACT_VISIBILITY_LABELS, tournamentSchema, type TournamentDTO } from '@playlocal/shared';
 import { useTournamentMutations } from '@/hooks/useMyTournaments';
 import { useSports, sportLabel } from '@/hooks/useSports';
 import { ApiClientError } from '@/services/api';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { InlineAlert, errorMessage } from '@/components/ui/States';
 import { TournamentBanner } from '@/components/tournament/TournamentBanner';
 import { formatDateRange, formatDateTime, formatMoney, toDateInput } from '@/utils/format';
+import { formatIndianPhone } from '@/utils/whatsapp';
 import type { StepKey } from './shared';
 
 const FIELD_STEP: Record<string, StepKey> = {
@@ -17,6 +18,7 @@ const FIELD_STEP: Record<string, StepKey> = {
   sport: 'basic',
   description: 'basic',
   banner: 'basic',
+  contact: 'basic',
   venue: 'location',
   startDate: 'schedule',
   endDate: 'schedule',
@@ -49,6 +51,9 @@ function toInput(t: TournamentDTO) {
     prizeMoney: t.prizeMoney,
     prizeDetails: t.prizeDetails,
     rules: t.rules,
+    contact: t.contact?.whatsapp
+      ? { whatsapp: t.contact.whatsapp, visibility: t.contact.visibility }
+      : undefined,
   };
 }
 
@@ -164,6 +169,13 @@ export function ReviewStep({
       <Section title="Basics" step="basic" id={t.id}>
         <Row label="Name" value={t.name} />
         <Row label="Sport" value={sportLabel(bySlug, t.sport)} />
+        <Row
+          label="WhatsApp contact"
+          value={
+            t.contact?.whatsapp &&
+            `${formatIndianPhone(t.contact.whatsapp)} · ${CONTACT_VISIBILITY_LABELS[t.contact.visibility]}`
+          }
+        />
         <div className="sm:col-span-2">
           <dt className="text-ink-soft">Description</dt>
           <dd className="line-clamp-3 font-medium whitespace-pre-line">

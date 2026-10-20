@@ -45,7 +45,16 @@ export const PUBLISHED_EDITABLE_FIELDS = [
   'banner',
   'maxTeams',
   'allowWaitlist',
+  'contact',
 ] as const;
+
+/** Who may see the organiser's WhatsApp number on a tournament page. */
+export const CONTACT_VISIBILITY = ['members', 'registered'] as const;
+export type ContactVisibility = (typeof CONTACT_VISIBILITY)[number];
+export const CONTACT_VISIBILITY_LABELS: Record<ContactVisibility, string> = {
+  members: 'Anyone logged in',
+  registered: 'Only registered teams',
+};
 
 export const REGISTRATION_STATUSES = [
   'pending',

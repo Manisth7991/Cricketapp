@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -26,6 +26,8 @@ export function Modal({
   size = 'md',
 }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Several dialogs can be mounted on one page — each needs its own title id for aria-labelledby.
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -47,7 +49,7 @@ export function Modal({
       onClick={(e) => {
         if (e.target === ref.current) onClose(); // backdrop click
       }}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       className={cn(
         'm-0 mt-auto w-full max-w-none rounded-t-3xl bg-white p-0 text-ink shadow-[var(--shadow-lift)] open:animate-[var(--animate-slide-up)]',
         'sm:m-auto sm:rounded-3xl',
@@ -56,12 +58,15 @@ export function Modal({
     >
       {open && (
         <div className="flex max-h-[85dvh] flex-col">
-          <div className="flex items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6">
+          {/* Header carries its own bottom padding so the footer divider never touches the text. */}
+          <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
             <div>
-              <h2 id="modal-title" className="text-lg font-semibold">
+              <h2 id={titleId} className="text-lg font-semibold">
                 {title}
               </h2>
-              {description && <p className="mt-1 text-sm text-ink-soft">{description}</p>}
+              {description && (
+                <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{description}</p>
+              )}
             </div>
             <button
               type="button"
@@ -72,9 +77,9 @@ export function Modal({
               <X className="size-5" />
             </button>
           </div>
-          {children && <div className="overflow-y-auto px-5 py-4 sm:px-6">{children}</div>}
+          {children && <div className="overflow-y-auto px-5 pb-5 sm:px-6">{children}</div>}
           {footer && (
-            <div className="flex flex-col-reverse gap-2 border-t border-line px-5 py-4 pb-safe sm:flex-row sm:justify-end sm:px-6">
+            <div className="flex flex-col-reverse gap-2 border-t border-line px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6">
               {footer}
             </div>
           )}

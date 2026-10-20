@@ -96,7 +96,8 @@ clear list of problems). Never commit `.env` files.
 | `APP_UTC_OFFSET`                                                                                  | `+05:30`                           | Timezone used to interpret tournament dates                                      |
 | `GEOCODING_ENABLED` / `GEOCODER_URL` / `GEOCODER_USER_AGENT`                                      | `false` / Nominatim / —            | Optional address → coordinates for "nearest" sorting                             |
 | `RATE_LIMIT_*`                                                                                    | see example                        | Window + per-route limits (auth, reports, uploads, global)                       |
-| `SMS_PROVIDER`                                                                                    | `console`                          | `console` (dev: OTP printed in log, refused in production), `msg91` or `twilio`  |
+| `SMS_PROVIDER`                                                                                    | `console`                          | `console` (dev), `firebase` (recommended), `msg91` or `twilio`                   |
+| `FIREBASE_PROJECT_ID`                                                                             | —                                  | Required with `SMS_PROVIDER=firebase`; the API verifies Firebase phone ID tokens |
 | `OTP_TTL_SECONDS` / `OTP_RESEND_COOLDOWN_SECONDS` / `OTP_MAX_ATTEMPTS` / `OTP_MAX_SENDS_PER_HOUR` | `300` / `30` / `5` / `5`           | OTP lifetime, resend wait, wrong-code limit, per-number hourly cap               |
 | `RATE_LIMIT_OTP_MAX`                                                                              | `10`                               | OTP requests per IP per window (SMS-pumping defence)                             |
 | `MSG91_AUTH_KEY` / `MSG91_TEMPLATE_ID`                                                            | —                                  | MSG91 OTP API; template must be DLT-approved and contain `##OTP##`               |
@@ -106,20 +107,22 @@ clear list of problems). Never commit `.env` files.
 
 ### Frontend (`frontend/.env`)
 
-| Variable                                              | Default                          | Notes                                            |
-| ----------------------------------------------------- | -------------------------------- | ------------------------------------------------ |
-| `VITE_API_URL`                                        | `/api`                           | Full URL when the API is on another domain       |
-| `VITE_DEV_API_PROXY`                                  | `http://localhost:5000`          | Dev proxy target                                 |
-| `VITE_APP_NAME`                                       | `PlayLocal`                      |                                                  |
-| `VITE_APP_TIMEZONE` / `VITE_LOCALE` / `VITE_CURRENCY` | `Asia/Kolkata` / `en-IN` / `INR` | Display formatting                               |
-| `VITE_NOTIFICATION_POLL_MS`                           | `60000`                          | Unread-count polling (paused in background tabs) |
+| Variable                                                             | Default                          | Notes                                                   |
+| -------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------- |
+| `VITE_API_URL`                                                       | `/api`                           | Full URL when the API is on another domain              |
+| `VITE_DEV_API_PROXY`                                                 | `http://localhost:5000`          | Dev proxy target                                        |
+| `VITE_APP_NAME`                                                      | `PlayLocal`                      |                                                         |
+| `VITE_APP_TIMEZONE` / `VITE_LOCALE` / `VITE_CURRENCY`                | `Asia/Kolkata` / `en-IN` / `INR` | Display formatting                                      |
+| `VITE_NOTIFICATION_POLL_MS`                                          | `60000`                          | Unread-count polling (paused in background tabs)        |
+| `VITE_FIREBASE_API_KEY` / `_AUTH_DOMAIN` / `_PROJECT_ID` / `_APP_ID` | —                                | Set all four to send login OTPs via Firebase Phone Auth |
 
 ## Product rules (as implemented)
 
 - **One account type.** Any user can play _and_ organise; organiser features appear on tournaments they own. Admin = a phone account whose number is in `ADMIN_PHONES` (synced on server start / `seed` / `sync-admins`) — the API never accepts a role from the client.
-- **Login = phone OTP** (Indian mobile numbers). Same flow for login and sign-up: number → 6-digit OTP → (new numbers only) name + optional email. The verified number can't be changed from the profile. Admins use the exact same flow and are routed to `/admin`; there are no passwords anywhere.
+- **Login = phone OTP** (Indian mobile numbers; sent by Firebase Phone Auth or by our own OTP engine, see `SMS_PROVIDER`). Same flow for login and sign-up: number → 6-digit OTP → (new numbers only) name + optional email. The verified number can't be changed from the profile. Admins use the exact same flow and are routed to `/admin`; there are no passwords anywhere.
 - **Tournament lifecycle:** `draft → pending_verification → published → completed | cancelled`; `pending → rejected` (owner edits & resubmits); `published ↔ suspended` (admin). **Approval auto-publishes** with the Verified badge (`approved` exists in the enum for spec compatibility but is transitional).
-- **Editing:** owners edit everything while `draft / pending_verification / rejected`. Once published only description, rules, banner, max teams (≥ registered) and waitlist can change.
+- **Editing:** owners edit everything while `draft / pending_verification / rejected`. Once published only description, rules, banner, max teams (≥ registered), waitlist and the WhatsApp contact can change.
+- **Contact the organiser:** every tournament carries a WhatsApp number (pre-filled with the organiser's verified login number). Players see a "Chat on WhatsApp" button that opens `wa.me` with a pre-filled message; the number is never printed. Visibility is `members` (any logged-in user, default) or `registered` (only teams with a pending/confirmed/waitlisted registration). The API includes `contact.whatsapp` only for viewers allowed to see it, and never in list responses. A number other than the organiser's own login number must be OTP-verified once (`/auth/otp/verify-contact` → short-lived ticket sent as `contact.ticket`), so nobody can list a stranger's number.
 - **Registration lifecycle:** `pending → confirmed` (organiser confirms) · `withdrawn` (captain, until the deadline) · `cancelled` (organiser declines / tournament cancelled) · `waitlisted` when full and the waitlist is enabled. Freed slots promote the oldest waitlisted team automatically (FIFO) with notifications.
 - **Capacity is enforced atomically** (conditional `$inc`), so concurrent registrations can never overbook. Duplicate registration of the same team is blocked by a unique index.
 - **Location:** users pick state + village/city; optional GPS enables distance display and "nearest first" sorting via a `2dsphere` index.
@@ -136,6 +139,8 @@ Base URL `/api`. Responses: `{ success: true, message?, data, meta? }` or
 | `POST /auth/otp/request` `{ phone }`                                                                                        | –           | Send a 6-digit OTP (cooldown, hourly cap, per-IP limit; `devCode` returned only in dev console mode)      |
 | `POST /auth/otp/verify` `{ phone, code }`                                                                                   | –           | Existing number → `{ status: 'logged_in', user }` + cookie; new number → `{ status: 'new_user', ticket }` |
 | `POST /auth/otp/complete` `{ ticket, name, email? }`                                                                        | –           | Create the account for a verified number; sets httpOnly cookie                                            |
+| `POST /auth/otp/verify-contact` `{ phone, code }`                                                                           | user        | Organiser verifying a WhatsApp number other than their login number → `{ ticket }` for `contact.ticket`   |
+| `POST /auth/firebase/verify` · `POST /auth/firebase/verify-contact` `{ idToken }`                                           | – / user    | Same as the two OTP verify calls, for Firebase Phone Auth (`SMS_PROVIDER=firebase`)                       |
 | `POST /auth/logout`                                                                                                         | –           | Clear the session cookie                                                                                  |
 | `GET /auth/session` · `GET /auth/me` · `PATCH /auth/me`                                                                     | user        | Session & profile                                                                                         |
 | `GET /sports`                                                                                                               | –           | Active sports                                                                                             |
@@ -206,6 +211,8 @@ In Atlas, allow-list the API host IPs and create a DB user with read/write on th
 - "Nearest first" only includes venues with coordinates — set them in the create flow ("Use my current
   location") or enable `GEOCODING_ENABLED` to geocode addresses on submission.
 - Notifications are in-app only (polling, no push/SMS/email yet).
+- The WhatsApp contact is OTP-verified as a phone number, but nobody can check that it actually has WhatsApp
+  installed; if it doesn't, WhatsApp shows its own "number not on WhatsApp" message when a player taps the button.
 - Real OTP SMS needs an SMS provider account (`SMS_PROVIDER=msg91` or `twilio`). For India, the sender ID and
   OTP template must be registered on DLT (done in the provider's dashboard). The MSG91/Twilio adapters are
   tested against their documented request formats, not against live accounts.

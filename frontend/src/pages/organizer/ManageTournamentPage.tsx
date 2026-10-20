@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import {
   AlertTriangle,
   CalendarCheck,
@@ -19,6 +19,8 @@ import { useTournament } from '@/hooks/useTournaments';
 import { useTournamentMutations } from '@/hooks/useMyTournaments';
 import { useRegistrationMutations, useTournamentRegistrations } from '@/hooks/useRegistrations';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
+import { whatsappLink } from '@/utils/whatsapp';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -96,6 +98,16 @@ function RegistrationRow({
                 className="inline-flex items-center gap-1 font-medium text-accent-700 hover:underline"
               >
                 <Phone className="size-3.5" aria-hidden /> {reg.captain.phone}
+              </a>
+            )}
+            {reg.captain?.phone && (
+              <a
+                href={whatsappLink(reg.captain.phone)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-medium text-[#128C7E] hover:underline"
+              >
+                <WhatsAppIcon className="size-3.5" /> WhatsApp
               </a>
             )}
             {reg.captain?.email && (
@@ -237,6 +249,22 @@ export default function ManageTournamentPage() {
           </ButtonLink>
         }
       />
+
+      {!t.contact &&
+        ['draft', 'pending_verification', 'rejected', 'published'].includes(t.status) && (
+          <InlineAlert
+            tone="blue"
+            className="mb-5"
+            title="Add a WhatsApp number"
+            icon={<WhatsAppIcon className="size-5" />}
+          >
+            Players can't message you yet.{' '}
+            <Link to={`/tournaments/${t.id}/edit/basic`} className="font-semibold underline">
+              Add your WhatsApp number
+            </Link>{' '}
+            so they can ask questions before registering.
+          </InlineAlert>
+        )}
 
       {/* Status-specific guidance + primary actions */}
       {t.status === 'draft' && (

@@ -80,7 +80,7 @@ export function toTeamDTO(t: any): TeamDTO {
 
 export function toTournamentDTO(
   t: any,
-  opts: { distanceKm?: number; includePrivate?: boolean } = {},
+  opts: { distanceKm?: number; includePrivate?: boolean; includeContact?: boolean } = {},
 ): TournamentDTO {
   const status = t.status as TournamentStatus;
   const organizer = nameRef(t.organizerId);
@@ -122,6 +122,13 @@ export function toTournamentDTO(
     createdAt: iso(t.createdAt)!,
     updatedAt: iso(t.updatedAt)!,
   };
+  // The number itself only goes to viewers allowed to contact the organiser (service decides).
+  if (t.contact?.whatsapp) {
+    dto.contact = {
+      visibility: t.contact.visibility ?? 'members',
+      ...(opts.includeContact || opts.includePrivate ? { whatsapp: t.contact.whatsapp } : {}),
+    };
+  }
   // Moderation reasons are only for the owner/admin.
   if (opts.includePrivate) {
     dto.rejectionReason = t.rejectionReason ?? undefined;

@@ -2,6 +2,7 @@ import { createContext, use, useEffect, useMemo, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { OtpCompleteInput, OtpVerifyInput, UserDTO } from '@playlocal/shared';
 import { authService, type OtpVerifyResult } from '@/services/authService';
+import { phoneAuth } from '@/services/phoneAuth';
 import { ApiClientError, onUnauthorized } from '@/services/api';
 import { qk } from '@/lib/queryKeys';
 
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       isAdmin: data?.role === 'admin',
       verifyOtp: async (input) => {
-        const result = await authService.verifyOtp(input);
+        const result = await phoneAuth.verifyLogin(input.phone, input.code);
         if (result.status === 'logged_in') afterAuth(result.user);
         return result;
       },
