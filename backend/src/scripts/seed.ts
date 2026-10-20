@@ -1,7 +1,7 @@
 /**
  * Seeds reference data, and optionally demo data.
  *
- *   npm run seed            → sports + admin (from ADMIN_* env). Safe to re-run (idempotent).
+ *   npm run seed            → sports + admin accounts (from ADMIN_PHONES). Safe to re-run (idempotent).
  *   npm run seed -- --demo  → also realistic DEMO users/teams/tournaments for local testing.
  *
  * Demo data is only for development/demos — never run --demo against production.
@@ -10,7 +10,7 @@ import { slugify } from '@playlocal/shared';
 import { env, isProd } from '../config/env';
 import { connectDb, disconnectDb } from '../config/db';
 import { Registration, Sport, Team, Tournament, User } from '../models';
-import { ensureAdmin } from './createAdmin';
+import { syncAdmins } from '../services/adminAccounts';
 import { endOfDay, startOfDay, todayIso } from '../utils/dates';
 
 const SPORTS = [
@@ -343,12 +343,12 @@ await connectDb();
 await seedSports();
 
 console.log('✓ Sports seeded');
-const admin = await ensureAdmin();
+const admins = await syncAdmins();
 
 console.log(
-  admin === 'skipped'
-    ? '• ADMIN_EMAIL/ADMIN_PASSWORD not set — admin not created'
-    : `✓ Admin ${admin}: ${env.ADMIN_EMAIL}`,
+  env.ADMIN_PHONES.length
+    ? `✓ Admins synced (${env.ADMIN_PHONES.join(', ')}): created ${admins.created.length}, promoted ${admins.promoted.length}, demoted ${admins.demoted}`
+    : '• ADMIN_PHONES not set — no admin accounts',
 );
 if (demo) await seedDemo();
 await disconnectDb();

@@ -4,12 +4,12 @@ import { USER_ROLES, USER_STATUSES } from '@playlocal/shared';
 const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 60 },
-    // Users sign in with a verified phone (OTP); admins use email + password.
+    // Everyone (users and admins) signs in with a verified phone + OTP. The admin role is
+    // bootstrapped from ADMIN_PHONES (services/adminAccounts.ts). Email is optional, for updates.
     // Partial unique indexes so absent values don't collide.
     email: { type: String, trim: true, lowercase: true },
     phone: { type: String, trim: true },
     phoneVerifiedAt: { type: Date },
-    passwordHash: { type: String, select: false },
     role: { type: String, enum: USER_ROLES, default: 'user', required: true },
     profileImage: { type: String },
     location: {

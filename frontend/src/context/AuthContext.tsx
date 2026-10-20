@@ -1,6 +1,6 @@
 import { createContext, use, useEffect, useMemo, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, OtpCompleteInput, OtpVerifyInput, UserDTO } from '@playlocal/shared';
+import type { OtpCompleteInput, OtpVerifyInput, UserDTO } from '@playlocal/shared';
 import { authService, type OtpVerifyResult } from '@/services/authService';
 import { ApiClientError, onUnauthorized } from '@/services/api';
 import { qk } from '@/lib/queryKeys';
@@ -9,10 +9,9 @@ interface AuthContextValue {
   user: UserDTO | null;
   isLoading: boolean;
   isAdmin: boolean;
-  /** Phone OTP: logs in existing users; returns a signup ticket for new numbers. */
+  /** Phone OTP (users and admins alike): logs in existing numbers; returns a signup ticket for new ones. */
   verifyOtp: (input: OtpVerifyInput) => Promise<OtpVerifyResult>;
   completeSignup: (input: OtpCompleteInput) => Promise<UserDTO>;
-  adminLogin: (input: LoginInput) => Promise<UserDTO>;
   logout: () => Promise<void>;
   setUser: (user: UserDTO) => void;
 }
@@ -57,7 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return result;
       },
       completeSignup: async (input) => afterAuth(await authService.completeSignup(input)),
-      adminLogin: async (input) => afterAuth(await authService.adminLogin(input)),
       logout: async () => {
         await authService.logout().catch(() => undefined);
         qc.setQueryData(qk.me, null);

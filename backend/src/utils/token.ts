@@ -1,15 +1,20 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import type { CookieOptions, Response } from 'express';
+import type { UserRole } from '@playlocal/shared';
 import { env, isProd } from '../config/env';
 
 interface TokenPayload {
   sub: string;
 }
 
-/** `typ` separates session tokens from signup tickets so neither can be used as the other. */
-export function signToken(userId: string): string {
+/**
+ * `typ` separates session tokens from signup tickets so neither can be used as the other.
+ * Admin sessions are shorter (ADMIN_JWT_EXPIRES_IN) — the role itself is always re-read from the DB.
+ */
+export function signToken(userId: string, role: UserRole = 'user'): string {
+  const expiresIn = role === 'admin' ? env.ADMIN_JWT_EXPIRES_IN : env.JWT_EXPIRES_IN;
   return jwt.sign({ sub: userId, typ: 'session' }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN as SignOptions['expiresIn'],
+    expiresIn: expiresIn as SignOptions['expiresIn'],
     algorithm: 'HS256',
   });
 }
@@ -58,14 +63,10 @@ function cookieOptions(): CookieOptions {
   };
 }
 
-function expiresInMs(): number {
-  const decoded = jwt.decode(signToken('000000000000000000000000')) as { exp: number; iat: number };
-  return (decoded.exp - decoded.iat) * 1000;
-}
-const maxAge = expiresInMs();
-
+/** Cookie lifetime always equals the token lifetime (user or admin). */
 export function setAuthCookie(res: Response, token: string) {
-  res.cookie(env.COOKIE_NAME, token, { ...cookieOptions(), maxAge });
+  const { exp, iat } = jwt.decode(token) as { exp: number; iat: number };
+  res.cookie(env.COOKIE_NAME, token, { ...cookieOptions(), maxAge: (exp - iat) * 1000 });
 }
 
 export function clearAuthCookie(res: Response) {

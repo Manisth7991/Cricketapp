@@ -3,7 +3,7 @@ import { env, isProd, isTest } from './env';
 
 export const logger = pino({
   level: isTest ? 'silent' : env.LOG_LEVEL,
-  redact: ['req.headers.cookie', 'req.headers.authorization', 'password', 'passwordHash'],
+  redact: ['req.headers.cookie', 'req.headers.authorization'],
   ...(isProd || isTest
     ? {}
     : {

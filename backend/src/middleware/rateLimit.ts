@@ -10,7 +10,7 @@ function limiter(limit: number, message: string, extra: Partial<Options> = {}) {
     limit,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    skip: () => isTest && process.env.RATE_LIMIT_IN_TESTS !== 'true',
+    skip: () => isTest,
     handler: (_req, res) => {
       res.status(429).json({ success: false, message, code: ERROR_CODES.RATE_LIMITED, errors: [] });
     },

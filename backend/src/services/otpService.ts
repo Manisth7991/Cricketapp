@@ -6,6 +6,7 @@ import { OtpChallenge, User } from '../models';
 import { ApiError } from '../utils/ApiError';
 import { signSignupTicket, verifySignupTicket } from '../utils/token';
 import { sendOtpSms } from './smsService';
+import { isAdminPhone } from './adminAccounts';
 import { toUserDTO } from './serializers';
 
 const HOUR_MS = 60 * 60_000;
@@ -223,7 +224,8 @@ export async function completeSignup(input: { ticket: string; name: string; emai
       email: input.email,
       phoneVerifiedAt: new Date(),
       lastLoginAt: new Date(),
-      role: 'user', // never taken from client input
+      // Never taken from client input: only numbers listed in ADMIN_PHONES become admins.
+      role: isAdminPhone(phone) ? 'admin' : 'user',
     });
     return toUserDTO(user.toObject());
   } catch (err) {

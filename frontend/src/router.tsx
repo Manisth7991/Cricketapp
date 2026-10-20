@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { createBrowserRouter, type RouteObject } from 'react-router';
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import AppLayout from '@/layouts/AppLayout';
 import RouteError from '@/pages/RouteError';
 import { RequireAuth, GuestOnly } from '@/components/layout/Guards';
@@ -125,10 +125,10 @@ const routes: RouteObject[] = [
     ],
   },
   {
+    // Admins use the same phone-OTP login as everyone else; the old URL keeps working.
     path: '/admin/login',
-    lazy: page(() => import('@/pages/admin/AdminLoginPage')),
+    element: <Navigate to="/login?next=%2Fadmin" replace />,
     errorElement: <RouteError />,
-    HydrateFallback,
   },
   {
     path: '/admin',

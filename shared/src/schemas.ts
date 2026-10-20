@@ -11,10 +11,6 @@ export function normalizePhone(raw: string): string {
   return digits;
 }
 
-export function isEmailLike(identifier: string): boolean {
-  return identifier.includes('@');
-}
-
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const text = (min: number, max: number, label: string) =>
@@ -64,12 +60,6 @@ export const isoDate = (label: string) =>
 
 export const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 
-const password = z
-  .string({ error: 'Password is required' })
-  .min(8, 'Password must be at least 8 characters')
-  .max(72, 'Password must be at most 72 characters')
-  .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), 'Password must contain a letter and a number');
-
 /* --------------------------------------------------------------------- auth */
 
 export const locationSchema = z.object({
@@ -109,22 +99,11 @@ export const otpCompleteSchema = z.object({
   email: optionalEmail,
 });
 
-/** Admin console login (email/phone + password). Regular users sign in with OTP. */
-export const loginSchema = z.object({
-  identifier: text(3, 120, 'Email or phone'),
-  password: z.string().min(1, 'Password is required').max(72),
-});
-
 export const updateProfileSchema = z.object({
   name: text(2, 60, 'Name').optional(),
   email: optionalEmail,
   profileImage: imageUrl,
   location: locationSchema.optional(),
-});
-
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: password,
 });
 
 /* -------------------------------------------------------------------- teams */
@@ -320,9 +299,7 @@ export const updateSportSchema = sportSchema.partial();
 export type OtpRequestInput = z.input<typeof otpRequestSchema>;
 export type OtpVerifyInput = z.input<typeof otpVerifySchema>;
 export type OtpCompleteInput = z.input<typeof otpCompleteSchema>;
-export type LoginInput = z.input<typeof loginSchema>;
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
-export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
 export type PlayerInput = z.input<typeof playerSchema>;
 export type TeamInput = z.input<typeof teamSchema>;
 export type TournamentInput = z.input<typeof tournamentSchema>;

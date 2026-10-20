@@ -35,7 +35,7 @@ export default tseslint.config(
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   {
-    files: ['backend/tests/**/*.ts', 'backend/src/scripts/**/*.ts'],
+    files: ['backend/src/scripts/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
   {

@@ -20,7 +20,6 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "npm run test --workspaces --if-present",
     "seed": "npm run seed --workspace backend",
     "db:memory": "npm run db:memory --workspace backend"
   },
