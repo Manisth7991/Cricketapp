@@ -107,7 +107,7 @@ export default function ProfilePage() {
           to="/settings"
           icon={<Settings className="size-5" />}
           label="Account settings"
-          hint="Name, contact details, password"
+          hint="Name, email, profile photo"
         />
         <Row
           to="/location?next=/profile"

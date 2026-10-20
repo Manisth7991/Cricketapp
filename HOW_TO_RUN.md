@@ -34,7 +34,7 @@ On this machine **both files already exist and are filled in** (MongoDB Atlas + 
 nothing to do.
 
 On a new machine, create them from the examples and fill in `backend/.env`
-(`MONGO_URI`, `JWT_SECRET`, `CLOUDINARY_*`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`):
+(`MONGO_URI`, `JWT_SECRET`, `CLOUDINARY_*`, `ADMIN_PHONES`):
 
 ```bash
 cd ~/Desktop/Cricketapp/backend
@@ -48,7 +48,8 @@ cp .env.example .env
 
 ## Step 3 — Seed the database (first time only)
 
-Run inside the **backend** folder. Creates the sports list and the admin account.
+Run inside the **backend** folder. Creates the sports list and syncs the admin accounts
+(the numbers in `ADMIN_PHONES` — the server also does this on every start).
 (Already done for the current Atlas database.)
 
 ```bash
@@ -120,8 +121,10 @@ In development **no real SMS is sent**. The code is shown:
 WARN: 📱 [DEV SMS] OTP for 9876543210: 482913
 ```
 
-**Admin console** still uses email + password: `admin@playlocal.dev` + the `ADMIN_PASSWORD`
-value in `backend/.env`.
+**Admin console** uses the very same login. The numbers listed in `ADMIN_PHONES` in `backend/.env`
+(currently `6393136745` and `7887061739`) land on http://localhost:5173/admin after the OTP; any
+other number is a normal user. There is no admin password. To add or remove an admin, edit
+`ADMIN_PHONES` and restart the backend (or run `npm run sync-admins`).
 
 ---
 
@@ -149,13 +152,11 @@ npm run dev
 
 ## Other commands
 
-| Do this                        | Folder     | Command                                     |
-| ------------------------------ | ---------- | ------------------------------------------- |
-| Run backend tests              | `backend`  | `npm test`                                  |
-| Run frontend tests             | `frontend` | `npm test`                                  |
-| Create/reset admin from `.env` | `backend`  | `npm run create-admin`                      |
-| Build backend for production   | `backend`  | `npm run build` then `npm start`            |
-| Build frontend for production  | `frontend` | `npm run build` (output in `frontend/dist`) |
+| Do this                         | Folder     | Command                                     |
+| ------------------------------- | ---------- | ------------------------------------------- |
+| Sync admins with `ADMIN_PHONES` | `backend`  | `npm run sync-admins`                       |
+| Build backend for production    | `backend`  | `npm run build` then `npm start`            |
+| Build frontend for production   | `frontend` | `npm run build` (output in `frontend/dist`) |
 
 ---
 

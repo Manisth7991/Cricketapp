@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, MessageSquareText, Smartphone } from 'lucide-react';
-import { indianMobileSchema, OTP_LENGTH } from '@playlocal/shared';
+import { indianMobileSchema, OTP_LENGTH, type UserDTO } from '@playlocal/shared';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/authService';
 import { ApiClientError } from '@/services/api';
@@ -16,6 +16,10 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 type Step = 'phone' | 'otp' | 'profile';
 
 const formatPhone = (p: string) => `+91 ${p.slice(0, 5)} ${p.slice(5)}`;
+
+/** Admins land on the console unless they were heading somewhere specific (?next=). */
+const destinationFor = (user: UserDTO, next: string) =>
+  user.role === 'admin' && next === '/' ? '/admin' : next;
 
 /** Live countdown for "Resend code in 0:24". */
 function useCountdown() {
@@ -108,7 +112,7 @@ export default function LoginPage({ mode = 'login' }: { mode?: 'login' | 'signup
     try {
       const result = await verifyOtp({ phone, code: value });
       if (result.status === 'logged_in') {
-        navigate(next, { replace: true });
+        navigate(destinationFor(result.user, next), { replace: true });
       } else {
         setTicket(result.ticket);
         setStep('profile');
@@ -127,8 +131,15 @@ export default function LoginPage({ mode = 'login' }: { mode?: 'login' | 'signup
     setBusy(true);
     setError(null);
     try {
-      await completeSignup({ ticket, name: name.trim(), email: email.trim() || undefined });
-      navigate(`/location?next=${encodeURIComponent(next)}&welcome=1`, { replace: true });
+      const user = await completeSignup({
+        ticket,
+        name: name.trim(),
+        email: email.trim() || undefined,
+      });
+      navigate(
+        user.role === 'admin' ? '/admin' : `/location?next=${encodeURIComponent(next)}&welcome=1`,
+        { replace: true },
+      );
     } catch (e) {
       if (e instanceof ApiClientError && e.code === 'SIGNUP_TICKET_INVALID') {
         setStep('phone');

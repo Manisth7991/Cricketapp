@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizePhone } from '@playlocal/shared';
 
 const bool = z
   .enum(['true', 'false', '1', '0', ''])
@@ -38,7 +39,8 @@ const envSchema = z
 
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
     JWT_EXPIRES_IN: z.string().default('7d'),
-    BCRYPT_ROUNDS: int(12).pipe(z.number().min(4).max(15)),
+    // Admin sessions are shorter than user sessions.
+    ADMIN_JWT_EXPIRES_IN: z.string().default('1d'),
     COOKIE_NAME: z.string().default('pl_session'),
     COOKIE_SECURE: bool,
     COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
@@ -91,9 +93,25 @@ const envSchema = z
     RATE_LIMIT_UPLOAD_MAX: int(30),
     RATE_LIMIT_GLOBAL_MAX: int(1000),
 
+    // ---- Admin accounts ----
+    // Comma-separated Indian mobile numbers that own the admin console (synced on start-up / seed).
     ADMIN_NAME: z.string().default('PlayLocal Admin'),
-    ADMIN_EMAIL: z.string().optional(),
-    ADMIN_PASSWORD: z.string().optional(),
+    ADMIN_PHONES: z
+      .string()
+      .optional()
+      .transform((v) => [
+        ...new Set(
+          (v ?? '')
+            .split(',')
+            .map((s) => normalizePhone(s))
+            .filter(Boolean),
+        ),
+      ])
+      .pipe(
+        z.array(
+          z.string().regex(/^[6-9]\d{9}$/, 'ADMIN_PHONES must be 10-digit Indian mobile numbers'),
+        ),
+      ),
   })
   .superRefine((env, ctx) => {
     if (env.STORAGE_DRIVER === 'cloudinary') {
@@ -143,6 +161,13 @@ const envSchema = z
           message: 'Set TWILIO_FROM or TWILIO_MESSAGING_SERVICE_SID when SMS_PROVIDER=twilio',
         });
       }
+    }
+    if (env.NODE_ENV === 'production' && env.ADMIN_PHONES.length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ADMIN_PHONES'],
+        message: 'ADMIN_PHONES is required in production (nobody could reach the admin console)',
+      });
     }
     if (env.COOKIE_SAMESITE === 'none' && !env.COOKIE_SECURE) {
       ctx.addIssue({

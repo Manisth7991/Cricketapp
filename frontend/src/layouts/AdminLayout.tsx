@@ -86,13 +86,15 @@ function SidebarFooter() {
       <Avatar name={user?.name ?? 'Admin'} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-white">{user?.name}</p>
-        <p className="truncate text-xs text-slate-400">{user?.email}</p>
+        <p className="truncate text-xs text-slate-400">
+          {user?.phone ? `+91 ${user.phone}` : user?.email}
+        </p>
       </div>
       <button
         type="button"
         onClick={async () => {
           await logout();
-          navigate('/admin/login', { replace: true });
+          navigate('/login', { replace: true });
         }}
         className="grid size-10 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white"
         aria-label="Log out"
