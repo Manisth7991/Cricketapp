@@ -110,7 +110,7 @@ async function seedDemo() {
   const T = (o: {
     name: string;
     sport: string;
-    organizer: { _id: unknown };
+    organizer: { _id: unknown; phone?: string | null };
     venue: {
       name: string;
       address: string;
@@ -133,6 +133,7 @@ async function seedDemo() {
     name: o.name,
     sport: o.sport,
     organizerId: o.organizer._id,
+    contact: { whatsapp: o.organizer.phone ?? undefined, visibility: 'members' },
     venue: o.venue,
     startDate: startOfDay(day(o.start)),
     endDate: endOfDay(day(o.start + (o.days ?? 1) - 1)),

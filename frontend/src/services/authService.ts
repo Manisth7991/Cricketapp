@@ -1,4 +1,5 @@
 import type {
+  FirebaseTokenInput,
   OtpCompleteInput,
   OtpRequestInput,
   OtpVerifyInput,
@@ -25,6 +26,14 @@ export const authService = {
   verifyOtp: (body: OtpVerifyInput) => post<OtpVerifyResult>('/auth/otp/verify', body),
   completeSignup: (body: OtpCompleteInput) =>
     post<{ user: UserDTO }>('/auth/otp/complete', body).then((d) => d.user),
+  /** Logged-in organiser verifying a WhatsApp number that differs from their login number. */
+  verifyContactOtp: (body: OtpVerifyInput) =>
+    post<{ ticket: string; phone: string }>('/auth/otp/verify-contact', body),
+  /** Firebase Phone Auth equivalents: the browser confirmed the SMS, the API checks the ID token. */
+  firebaseVerify: (body: FirebaseTokenInput) =>
+    post<OtpVerifyResult>('/auth/firebase/verify', body),
+  firebaseVerifyContact: (body: FirebaseTokenInput) =>
+    post<{ ticket: string; phone: string }>('/auth/firebase/verify-contact', body),
   logout: () => post<null>('/auth/logout'),
   updateProfile: (body: UpdateProfileInput) =>
     patch<{ user: UserDTO }>('/auth/me', body).then((d) => d.user),

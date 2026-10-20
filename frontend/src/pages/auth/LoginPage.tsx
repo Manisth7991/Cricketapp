@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCountdown } from '@/hooks/useCountdown';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, MessageSquareText, Smartphone } from 'lucide-react';
 import { indianMobileSchema, OTP_LENGTH, type UserDTO } from '@playlocal/shared';
 import { useAuth } from '@/context/AuthContext';
-import { authService } from '@/services/authService';
+import { phoneAuth } from '@/services/phoneAuth';
 import { ApiClientError } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
@@ -20,17 +21,6 @@ const formatPhone = (p: string) => `+91 ${p.slice(0, 5)} ${p.slice(5)}`;
 /** Admins land on the console unless they were heading somewhere specific (?next=). */
 const destinationFor = (user: UserDTO, next: string) =>
   user.role === 'admin' && next === '/' ? '/admin' : next;
-
-/** Live countdown for "Resend code in 0:24". */
-function useCountdown() {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    if (seconds <= 0) return;
-    const t = window.setTimeout(() => setSeconds((s) => s - 1), 1000);
-    return () => window.clearTimeout(t);
-  }, [seconds]);
-  return [seconds, setSeconds] as const;
-}
 
 /**
  * One flow for both login and sign-up: mobile number → OTP → (new users only) name.
@@ -78,7 +68,7 @@ export default function LoginPage({ mode = 'login' }: { mode?: 'login' | 'signup
     setBusy(true);
     setError(null);
     try {
-      const res = await authService.requestOtp({ phone: target });
+      const res = await phoneAuth.send(target);
       setPhone(target);
       setDevCode(res.devCode ?? null);
       setResendIn(res.resendIn);
@@ -191,6 +181,29 @@ export default function LoginPage({ mode = 'login' }: { mode?: 'login' | 'signup
             <p className="text-center text-xs text-ink-faint">
               Standard SMS rates may apply. PlayLocal never asks for payments.
             </p>
+            {phoneAuth.mode === 'firebase' && (
+              <p className="text-center text-[11px] text-ink-faint">
+                Protected by reCAPTCHA. The Google{' '}
+                <a
+                  href="https://policies.google.com/privacy"
+                  className="underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Privacy Policy
+                </a>{' '}
+                and{' '}
+                <a
+                  href="https://policies.google.com/terms"
+                  className="underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Terms of Service
+                </a>{' '}
+                apply.
+              </p>
+            )}
           </form>
         </>
       )}

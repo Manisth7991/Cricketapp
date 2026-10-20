@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { LIMITS, REPORT_REASONS, REPORT_STATUSES, USER_STATUSES } from './constants';
+import {
+  CONTACT_VISIBILITY,
+  LIMITS,
+  REPORT_REASONS,
+  REPORT_STATUSES,
+  USER_STATUSES,
+} from './constants';
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -92,6 +98,11 @@ export const otpVerifySchema = z.object({
     .regex(new RegExp(`^\\d{${OTP_LENGTH}}$`), `Enter the ${OTP_LENGTH}-digit OTP`),
 });
 
+/** Firebase Phone Auth: the client's ID token after `confirmationResult.confirm(code)`. */
+export const firebaseTokenSchema = z.object({
+  idToken: z.string().trim().min(20, 'Verification token missing').max(4096),
+});
+
 /** Second step for new numbers: the verified-phone ticket + profile basics. */
 export const otpCompleteSchema = z.object({
   ticket: z.string().min(20, 'Session expired — please verify your number again').max(2000),
@@ -133,11 +144,28 @@ export const updateTeamSchema = teamSchema.omit({ players: true }).partial();
 
 /* -------------------------------------------------------------- tournaments */
 
+/** Organiser contact shown to players as a WhatsApp button (never as plain text). */
+export const tournamentContactSchema = z.object(
+  {
+    whatsapp: indianMobileSchema,
+    visibility: z.enum(CONTACT_VISIBILITY).default('members'),
+    /** Required when the number differs from the organiser's login number (POST /auth/otp/verify-contact). Never stored. */
+    ticket: z
+      .string()
+      .trim()
+      .max(2000)
+      .optional()
+      .transform((v) => v || undefined),
+  },
+  { error: 'Add a WhatsApp number so players can reach you' },
+);
+
 export const tournamentBasicSchema = z.object({
   name: text(3, 100, 'Tournament name'),
   sport: text(1, 40, 'Sport'),
   banner: imageUrl,
   description: text(20, 3000, 'Description'),
+  contact: tournamentContactSchema,
 });
 
 export const venueSchema = z.object({
@@ -299,9 +327,11 @@ export const updateSportSchema = sportSchema.partial();
 export type OtpRequestInput = z.input<typeof otpRequestSchema>;
 export type OtpVerifyInput = z.input<typeof otpVerifySchema>;
 export type OtpCompleteInput = z.input<typeof otpCompleteSchema>;
+export type FirebaseTokenInput = z.input<typeof firebaseTokenSchema>;
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type PlayerInput = z.input<typeof playerSchema>;
 export type TeamInput = z.input<typeof teamSchema>;
+export type TournamentContactInput = z.input<typeof tournamentContactSchema>;
 export type TournamentInput = z.input<typeof tournamentSchema>;
 export type TournamentDraftInput = z.input<typeof tournamentDraftSchema>;
 export type RegistrationInput = z.input<typeof registrationSchema>;

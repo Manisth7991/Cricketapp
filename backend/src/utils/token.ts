@@ -53,6 +53,33 @@ export function verifySignupTicket(ticket: string): string | null {
   }
 }
 
+/**
+ * Proof that a logged-in user just OTP-verified a WhatsApp number other than their login number.
+ * Bound to the user so it can't be handed to someone else.
+ */
+export function signContactTicket(userId: string, phone: string): string {
+  return jwt.sign({ sub: userId, phone, typ: 'contact' }, env.JWT_SECRET, {
+    expiresIn: '30m',
+    algorithm: 'HS256',
+  });
+}
+
+export function verifyContactTicket(ticket: string, userId: string): string | null {
+  try {
+    const payload = jwt.verify(ticket, env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (
+      typeof payload === 'object' &&
+      payload.typ === 'contact' &&
+      payload.sub === userId &&
+      typeof payload.phone === 'string'
+    )
+      return payload.phone;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function cookieOptions(): CookieOptions {
   return {
     httpOnly: true,

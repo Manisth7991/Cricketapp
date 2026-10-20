@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import {
+  firebaseTokenSchema,
   otpCompleteSchema,
   otpRequestSchema,
   otpVerifySchema,
@@ -29,6 +30,30 @@ export async function verifyOtp(req: Request, res: Response) {
   const user = await authService.getUserById(result.userId);
   setAuthCookie(res, signToken(user.id, user.role)); // admins get the shorter session
   ok(res, { status: 'logged_in', user }, 'Logged in');
+}
+
+/* ------------------------------------------------- Firebase Phone Auth (SMS_PROVIDER=firebase) */
+
+export async function firebaseVerify(req: Request, res: Response) {
+  const { idToken } = parseInput(firebaseTokenSchema, req.body);
+  const result = await otpService.firebaseLogin(idToken);
+  if (result.status === 'new_user') {
+    return ok(res, { status: 'new_user', ticket: result.ticket }, 'Number verified');
+  }
+  const user = await authService.getUserById(result.userId);
+  setAuthCookie(res, signToken(user.id, user.role));
+  ok(res, { status: 'logged_in', user }, 'Logged in');
+}
+
+export async function firebaseVerifyContact(req: Request, res: Response) {
+  const { idToken } = parseInput(firebaseTokenSchema, req.body);
+  ok(res, await otpService.firebaseContact(authUser(req).id, idToken), 'Number verified');
+}
+
+/** Organisers: verify a WhatsApp number that differs from the login number (no session change). */
+export async function verifyContactOtp(req: Request, res: Response) {
+  const { phone, code } = parseInput(otpVerifySchema, req.body);
+  ok(res, await otpService.verifyContactOtp(authUser(req).id, phone, code), 'Number verified');
 }
 
 export async function completeSignup(req: Request, res: Response) {

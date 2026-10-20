@@ -25,6 +25,7 @@ import { useToast } from '@/context/ToastContext';
 import { tournamentService } from '@/services/tournamentService';
 import { qk } from '@/lib/queryKeys';
 import { TournamentBanner } from '@/components/tournament/TournamentBanner';
+import { ContactOrganiser } from '@/components/tournament/ContactOrganiser';
 import {
   AvailabilityBadge,
   RegistrationStatusBadge,
@@ -399,6 +400,7 @@ export default function TournamentDetailsPage() {
               <p className="text-lg font-bold">{formatDate(t.startDate)}</p>
             </div>
             <RegisterCta t={t} />
+            <ContactOrganiser t={t} />
             <MyRegistrations tournamentId={t.id} />
           </div>
         </aside>
@@ -410,8 +412,11 @@ export default function TournamentDetailsPage() {
           <MyRegistrations tournamentId={t.id} />
         </div>
         <div className="fixed inset-x-0 bottom-16 z-30 border-t border-line bg-white/95 p-3 backdrop-blur-md md:bottom-0">
-          <div className="mx-auto max-w-md">
-            <RegisterCta t={t} compact />
+          <div className="mx-auto flex max-w-md items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <RegisterCta t={t} compact />
+            </div>
+            <ContactOrganiser t={t} compact />
           </div>
         </div>
       </div>

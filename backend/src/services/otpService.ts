@@ -4,8 +4,9 @@ import { env, isProd } from '../config/env';
 import { logger } from '../config/logger';
 import { OtpChallenge, User } from '../models';
 import { ApiError } from '../utils/ApiError';
-import { signSignupTicket, verifySignupTicket } from '../utils/token';
+import { signContactTicket, signSignupTicket, verifySignupTicket } from '../utils/token';
 import { sendOtpSms } from './smsService';
+import { verifyFirebasePhoneToken } from './firebaseAuth';
 import { isAdminPhone } from './adminAccounts';
 import { toUserDTO } from './serializers';
 
@@ -46,6 +47,12 @@ export interface OtpRequestResult {
 
 /** Send a fresh OTP to an Indian mobile number (rate-limited per number and per IP). */
 export async function requestOtp(phone: string): Promise<OtpRequestResult> {
+  if (env.SMS_PROVIDER === 'firebase') {
+    throw ApiError.badRequest(
+      'Phone verification runs through Firebase on this server.',
+      ERROR_CODES.PHONE_AUTH_UNAVAILABLE,
+    );
+  }
   const blocked = await User.exists({ phone, status: 'blocked' });
   if (blocked)
     throw ApiError.forbidden(
@@ -122,8 +129,8 @@ export async function requestOtp(phone: string): Promise<OtpRequestResult> {
 export type OtpVerifyResult =
   { status: 'logged_in'; userId: string } | { status: 'new_user'; ticket: string };
 
-/** Check the code. Existing number → logged in. New number → short-lived signup ticket. */
-export async function verifyOtp(phone: string, code: string): Promise<OtpVerifyResult> {
+/** Check and burn the code for this phone (single use, attempt-limited). Throws on any failure. */
+async function consumeOtp(phone: string, code: string): Promise<void> {
   const now = new Date();
   const challenge = await OtpChallenge.findOne({ phone }).lean();
   if (!challenge || !challenge.codeHash || challenge.expiresAt.getTime() <= now.getTime()) {
@@ -177,7 +184,17 @@ export async function verifyOtp(phone: string, code: string): Promise<OtpVerifyR
     { _id: challenge._id, codeHash: counted.codeHash },
     { $set: { codeHash: '', expiresAt: now } },
   );
+}
 
+/** Check the code. Existing number → logged in. New number → short-lived signup ticket. */
+export async function verifyOtp(phone: string, code: string): Promise<OtpVerifyResult> {
+  await consumeOtp(phone, code);
+  return resolvePhoneLogin(phone);
+}
+
+/** A phone number has just been proven (our OTP or Firebase): log in, or hand out a signup ticket. */
+async function resolvePhoneLogin(phone: string): Promise<OtpVerifyResult> {
+  const now = new Date();
   const user = await User.findOne({ phone }).select('_id status phoneVerifiedAt').lean();
   if (!user) return { status: 'new_user', ticket: signSignupTicket(phone) };
   if (user.status === 'blocked')
@@ -190,6 +207,15 @@ export async function verifyOtp(phone: string, code: string): Promise<OtpVerifyR
     { $set: { lastLoginAt: now, ...(user.phoneVerifiedAt ? {} : { phoneVerifiedAt: now }) } },
   );
   return { status: 'logged_in', userId: user._id.toString() };
+}
+
+/**
+ * Logged-in organisers verifying a WhatsApp number that is not their login number. No login
+ * side effects — returns a short-lived ticket that create/update tournament accepts as proof.
+ */
+export async function verifyContactOtp(userId: string, phone: string, code: string) {
+  await consumeOtp(phone, code);
+  return { ticket: signContactTicket(userId, phone), phone };
 }
 
 /** New numbers: create the account from a verified-phone ticket + name (+ optional email). */
@@ -239,4 +265,17 @@ export async function completeSignup(input: { ticket: string; name: string; emai
     }
     throw err;
   }
+}
+
+/* ------------------------------------------------------------ Firebase Phone Auth */
+
+/** Login / sign-up with a Firebase ID token (the browser already sent and confirmed the SMS). */
+export async function firebaseLogin(idToken: string): Promise<OtpVerifyResult> {
+  return resolvePhoneLogin(await verifyFirebasePhoneToken(idToken));
+}
+
+/** Organiser proving a different WhatsApp number through Firebase → contact ticket. */
+export async function firebaseContact(userId: string, idToken: string) {
+  const phone = await verifyFirebasePhoneToken(idToken);
+  return { ticket: signContactTicket(userId, phone), phone };
 }

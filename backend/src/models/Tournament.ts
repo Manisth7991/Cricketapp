@@ -1,5 +1,5 @@
 import { Schema, model, type InferSchemaType } from 'mongoose';
-import { TOURNAMENT_STATUSES } from '@playlocal/shared';
+import { CONTACT_VISIBILITY, TOURNAMENT_STATUSES } from '@playlocal/shared';
 
 const pointSchema = new Schema(
   {
@@ -32,6 +32,11 @@ const tournamentSchema = new Schema(
     prizeMoney: { type: Number, default: 0, min: 0 },
     prizeDetails: { type: String, trim: true },
     rules: { type: [String], default: [] },
+    // Organiser contact for players (WhatsApp deep link); `visibility` = who may see it.
+    contact: {
+      whatsapp: { type: String, trim: true },
+      visibility: { type: String, enum: CONTACT_VISIBILITY, default: 'members' },
+    },
     status: { type: String, enum: TOURNAMENT_STATUSES, default: 'draft', required: true },
 
     // Denormalised counters — maintained atomically by the registration service.

@@ -14,6 +14,9 @@ import {
 import { useAdminMutation, useAdminTournament } from '@/hooks/useAdmin';
 import { useSports, sportLabel } from '@/hooks/useSports';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
+import { formatIndianPhone, whatsappLink } from '@/utils/whatsapp';
+import { CONTACT_VISIBILITY_LABELS } from '@playlocal/shared';
 import { useToast } from '@/context/ToastContext';
 import { adminService } from '@/services/adminService';
 import { TournamentBanner } from '@/components/tournament/TournamentBanner';
@@ -188,6 +191,18 @@ export default function AdminTournamentDetailPage() {
           <section className="card p-5">
             <h2 className="font-semibold">Organiser</h2>
             <p className="mt-2 font-medium">{t.organizer?.name}</p>
+            {t.contact?.whatsapp && (
+              <a
+                href={whatsappLink(t.contact.whatsapp)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1.5 text-sm text-accent-700 hover:underline"
+              >
+                <WhatsAppIcon className="size-4" /> Players' WhatsApp:{' '}
+                {formatIndianPhone(t.contact.whatsapp)} ·{' '}
+                {CONTACT_VISIBILITY_LABELS[t.contact.visibility]}
+              </a>
+            )}
             {contact && (
               <div className="mt-2 flex flex-col gap-1.5 text-sm">
                 {contact.email && (

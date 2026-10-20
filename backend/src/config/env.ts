@@ -64,8 +64,11 @@ const envSchema = z
       .transform((v) => v || undefined),
 
     // ---- Phone OTP login ----
-    // console = print OTP in the server log (development only); msg91 / twilio = real SMS
-    SMS_PROVIDER: z.enum(['console', 'msg91', 'twilio']).default('console'),
+    // console  = print OTP in the server log (development only)
+    // msg91 / twilio = our own OTP engine sends real SMS (needs DLT registration in India)
+    // firebase = Firebase Phone Auth sends the SMS from the browser; the API only verifies the ID token
+    SMS_PROVIDER: z.enum(['console', 'msg91', 'twilio', 'firebase']).default('console'),
+    FIREBASE_PROJECT_ID: z.string().optional(),
     OTP_TTL_SECONDS: int(300),
     OTP_RESEND_COOLDOWN_SECONDS: int(30),
     OTP_MAX_ATTEMPTS: int(5),
@@ -133,6 +136,13 @@ const envSchema = z
         code: 'custom',
         path: ['SMS_PROVIDER'],
         message: 'SMS_PROVIDER=console is not allowed in production — configure msg91 or twilio',
+      });
+    }
+    if (env.SMS_PROVIDER === 'firebase' && !env.FIREBASE_PROJECT_ID) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['FIREBASE_PROJECT_ID'],
+        message: 'FIREBASE_PROJECT_ID is required when SMS_PROVIDER=firebase',
       });
     }
     if (env.SMS_PROVIDER === 'msg91') {

@@ -6,6 +6,7 @@ import type {
   TournamentStatus,
   UserRole,
   UserStatus,
+  ContactVisibility,
 } from './constants';
 import type { ErrorCode } from './errors';
 
@@ -123,6 +124,8 @@ export interface TournamentDTO {
   prizeMoney: number;
   prizeDetails?: string;
   rules: string[];
+  /** Organiser WhatsApp contact. `whatsapp` is present only when this viewer may contact them. */
+  contact?: { visibility: ContactVisibility; whatsapp?: string };
   status: TournamentStatus;
   verified: boolean;
   registeredCount: number;

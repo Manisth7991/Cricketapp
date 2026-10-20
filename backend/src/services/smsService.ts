@@ -70,10 +70,18 @@ const twilioProvider: SmsProvider = {
   },
 };
 
+/** With Firebase the browser sends the SMS; the server-side OTP engine is switched off. */
+const firebaseProvider: SmsProvider = {
+  async sendOtp() {
+    throw new Error('SMS_PROVIDER=firebase: codes are sent by Firebase from the client');
+  },
+};
+
 const providers: Record<typeof env.SMS_PROVIDER, SmsProvider> = {
   console: consoleProvider,
   msg91: msg91Provider,
   twilio: twilioProvider,
+  firebase: firebaseProvider,
 };
 
 export function sendOtpSms(phone: string, code: string): Promise<void> {
